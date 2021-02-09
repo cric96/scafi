@@ -150,7 +150,7 @@ class PhaserGraphSection(paneSection: HTMLElement,
       .foreach(vertexContainer.add(_))
   }
 
-  private def renderLabel[E <: GameobjectNode](nodes: Set[(Node, E)], scene: Scene, world: Graph): Unit = {
+  private def renderLabel[E <: GameobjectNode](nodes: js.Array[(Node, E)], scene: Scene, world: Graph): Unit = {
     def renderNodeLabels(node: E, labels: Seq[(String, Any)]): Seq[GameObject] = {
       type FoldType = (Seq[(String, Any)], Seq[GameObject])
 

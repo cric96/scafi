@@ -4,6 +4,7 @@ import it.unibo.scafi.js.controller.AggregateSystemSupport
 import it.unibo.scafi.js.controller.local.SimulationSideEffect._
 import it.unibo.scafi.js.dsl.{BasicWebIncarnation, ScafiInterpreterJs}
 import it.unibo.scafi.js.model._
+import it.unibo.scafi.js.utils.SpaceAdapter.JSPoint2D
 import it.unibo.scafi.simulation.SpatialSimulation
 import it.unibo.scafi.space.Point3D
 import monix.execution.Cancelable
@@ -12,6 +13,7 @@ import monix.reactive.subjects.PublishSubject
 import org.scalajs.dom.ext.Color
 
 import scala.concurrent.Future
+import scala.scalajs.js
 //TODO make support more general
 /**
   * Support for manage a local aggregate simulation simulation
@@ -50,7 +52,6 @@ class SimulationSupport(protected var systemConfig: SupportConfiguration)
       case _ => throw new IllegalArgumentException("configuration not supported")
     }
     config.deviceShape.sensors.foreach { case (sensorName, value) => backend.addSensor(sensorName, value) }
-
     for ((id, sensorValues) <- config.deviceShape.initialValues) {
       for ((sensorName, sensorValue) <- sensorValues) {
         backend.chgSensorValue(sensorName, Set(id), sensorValue)
@@ -72,45 +73,50 @@ class SimulationSupport(protected var systemConfig: SupportConfiguration)
   }
 
   private def produceGraphFromNetwork() : Graph = {
-    val nodes : Set[Node] = backend.exports()
+    val nodes : Seq[Node] = backend.exports()
       .map { case (id, export) => (backend.devs(id), export )}
       .map {
         case (dev, Some(export)) => (dev, dev.lsns + (EXPORT_LABEL -> export))
         case (dev, None) => (dev, dev.lsns)
       }
-      .map { case (dev, labels) => Node(dev.id, dev.pos, labels)}
-      .toSet
+      .map { case (dev, labels) => new Node(dev.id, new JSPoint2D(dev.pos.x, dev.pos.y), mapToDictionary(labels)) }
+      .toSeq
     val vertices = computeVertices()
-    NaiveGraph(nodes, vertices)
+    new NaiveGraph(js.Array(nodes:_*), vertices)
   }
 
   import GraphOps.Implicits._
   private def updateGraphWithExports(exports: Seq[(ID, EXPORT)], graph: Graph) : Graph = {
     val newExports = exports.map { case (id, export) => export -> graph(id) }
-      .map { case (export, node) => node.copy(labels = node.labels + (EXPORT_LABEL -> export))}
+      .map { case (export, node) => new Node(node.id, node.position, node.labels ++: js.Dictionary(EXPORT_LABEL -> (export).asInstanceOf[js.Any])) }
     graph.insertNodes(newExports)
   }
 
   private def updateGraphWithPosition(positionMap : Map[ID, Point3D], graph : Graph) : Graph = {
     val nodesUpdated = positionMap.map { case (id, pos) => pos -> graph(id) }
-      .map { case (pos, node) => node.copy(position = pos) }
+      .map { case (pos, node) => new Node(node.id, new JSPoint2D(pos.x, pos.y), node.labels) }
       .toSeq
-    NaiveGraph(graph.insertNodes(nodesUpdated).nodes, computeVertices()) //neighbour could be change, todo improve performance
+    new NaiveGraph(graph.insertNodes(nodesUpdated).nodes, computeVertices()) //neighbour could be change, todo improve performance
   }
 
   private def updateGraphWithSensor(sensorMap : Map[ID, Map[LSNS, Any]], graph : Graph) = {
     val nodeUpdated = sensorMap.toSeq.map { case (id, labels) => labels -> graph(id) }
-      .map { case (labels, node) => node.copy(labels = node.labels ++ labels) }
+      .map { case (labels, node) => new Node(node.id, node.position, node.labels ++: mapToDictionary(labels)) }
     graph.insertNodes(nodeUpdated)
   }
 
-  private def computeVertices() : Set[Vertex] = backend.getAllNeighbours()
-    .flatMap { case (id, elements) => elements.map(Vertex(id, _)) }
-    .toSet
+  private def computeVertices() : js.Array[Vertex] = js.Array(backend.getAllNeighbours()
+    .flatMap { case (id, elements) => elements.map(new Vertex(id, _)) }
+    .toSeq:_*
+  )
 
   private def backendSeed(config : SupportConfiguration) : Seeds = {
     val SimulationSeeds(configSeed, simulationSeed, randomSensorSeed) = config.seed
     Seeds(configSeed.toLong, simulationSeed.toLong, randomSensorSeed.toLong)
+  }
+
+  private def mapToDictionary(data : Map[LSNS, Any]) : js.Dictionary[js.Any] = {
+    js.Dictionary(data.mapValues(_.asInstanceOf[js.Any]).toSeq:_*)
   }
 }
 

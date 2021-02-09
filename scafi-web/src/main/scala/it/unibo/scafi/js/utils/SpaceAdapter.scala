@@ -1,16 +1,11 @@
 package it.unibo.scafi.js.utils
 
-import it.unibo.scafi.space.Point3D
-
-import scala.scalajs.js.annotation.{JSExportAll, JSExportTopLevel}
+import scala.scalajs.js
 
 object SpaceAdapter {
-  @JSExportTopLevel("Point3D")
-  @JSExportAll
-  case class JSPoint3D(override val x : Double, override val y : Double, override val z : Double) extends Point3D(x, y, z)
+  class JSPoint3D(val x : Double, val y : Double, val z : Double) extends js.Object
+  class JSPoint2D(val x : Double, val y : Double)
 
-  @JSExportTopLevel("Point2D")
-  @JSExportAll
-  case class JSPoint2D(override val x : Double, override val y : Double, override val z : Double) extends Point3D(x, y, z)
-
+  object Zero2D extends JSPoint2D(0, 0)
+  object Zero3D extends JSPoint2D(0, 0)
 }

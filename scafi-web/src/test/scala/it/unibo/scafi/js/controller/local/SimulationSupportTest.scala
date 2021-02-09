@@ -3,7 +3,7 @@ package it.unibo.scafi.js.controller.local
 import it.unibo.scafi.js.controller.local.SupportTesterLike.incarnation
 import it.unibo.scafi.js.dsl.WebIncarnation
 import it.unibo.scafi.js.model.Vertex
-import it.unibo.scafi.space.Point3D
+import it.unibo.scafi.space.{Point2D, Point3D}
 
 import scala.util.{Failure, Success}
 
@@ -17,21 +17,25 @@ class SimulationSupportTest extends SupportTesterLike {
         DeviceConfiguration.standard,
         SimulationSeeds()
       )
+
       val newGraph = localPlatform.graphStream.firstL.runToFuture(monixScheduler)
       localPlatform.evolve(newConfiguration).transform {
         case Success(any) => Success(succeed)
         case Failure(exception) => Success(fail(exception))
       }
+
       newGraph.map(graph => {
         graph.nodes.size shouldBe (range * range)
-        assert(graph.vertices.contains(Vertex("1", "2")))
+        assert(graph.vertices.exists(v => v.from == "1" && v.to == "2"))
         val aNode = graph.nodes.head
         aNode.labels("source") shouldBe false
         aNode.labels("obstacle") shouldBe false
         val (nodeA, nodeB) = (graph("1"), graph("2"))
-        nodeA.position.distance(nodeB.position) shouldBe range
+        val (pointA, pointB) = (Point2D(nodeA.position.x, nodeA.position.y), Point2D(nodeB.position.x, nodeB.position.y))
+        pointA.distance(pointB) shouldBe range
         succeed
       })
+
     }
 
     it("should evolve with random config") {
@@ -61,7 +65,7 @@ class SimulationSupportTest extends SupportTesterLike {
       val sideEffect = localPlatform.PositionChanged(Map(node -> Point3D(newPositionX, newPositionY, 0)))
       val newGraph = localPlatform.graphStream.firstL.runToFuture(monixScheduler)
       localPlatform.publish(sideEffect)
-      newGraph.map { graph => graph(node).position shouldBe Point3D(newPositionX, newPositionY, 0) }
+      newGraph.map { graph => Point3D(graph(node).position.x, graph(node).position.y, 0) shouldBe Point3D(newPositionX, newPositionY, 0) }
     }
 
     it("should support sensor update side effect") {

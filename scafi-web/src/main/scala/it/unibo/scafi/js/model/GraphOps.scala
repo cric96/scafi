@@ -1,6 +1,6 @@
 package it.unibo.scafi.js.model
 
-import it.unibo.scafi.space.Point3D
+import scala.scalajs.js
 
 /**
  * define a set of operations used to alter nodes inside a graph
@@ -60,23 +60,23 @@ object GraphOps {
       override def removeNode(node: String): Graph = graph match {
         case g : NodeOperation => g.removeNode(node)
         case _ =>
-          val nodes = graph.nodes - Node(node, Point3D.Zero) //remove node, equals is on id, not on point.
+          val nodes = graph.nodes.filterNot(_.id == node) //remove node, equals is on id, not on point.
           val vertices = graph.vertices.filterNot(vertex => vertex.to == node || vertex.from == node) //remove vertex in witch node is partecipant
-          NaiveGraph(nodes, vertices)
+          new NaiveGraph(nodes, vertices)
       }
 
       override def insertNode(node: Node): Graph = graph match {
         case g : NodeOperation => g.insertNode(node)
-        case _ => NaiveGraph((graph.nodes - node) + node, graph.vertices) //first remove old occurrence and then insert new one
+        case _ => new NaiveGraph(graph.nodes.filterNot(_.id == node.id) ++ js.Array(node), graph.vertices) //first remove old occurrence and then insert new one
       }
 
       override def unlink(vertex: Vertex): Graph = graph match {
         case g : VertexOperation => g.link(vertex)
-        case _ => NaiveGraph(graph.nodes, graph.vertices - vertex)
+        case _ => new NaiveGraph(graph.nodes, graph.vertices.filterNot(v => v.to == vertex.to && v.from == vertex.from))
       }
       override def link(vertex: Vertex): Graph = graph match {
         case g : VertexOperation => g.unlink(vertex)
-        case _ => NaiveGraph(graph.nodes, graph.vertices + vertex)
+        case _ => new NaiveGraph(graph.nodes, graph.vertices ++ js.Array(vertex))
       }
 
       override def replaceNeighbours(node: String, neighbours: Set[String]): Graph = graph match {
@@ -84,21 +84,25 @@ object GraphOps {
         case _ =>
           val oldNeighbours = graph.neighbours(node)
           val vertex = graph.vertices
-          val toRemove = oldNeighbours.map(neighbour => Vertex(node, neighbour.id))
-          val toAdd = neighbours.map(neighbour => Vertex(node, neighbour))
-          NaiveGraph(graph.nodes, (vertex -- toRemove) ++ toAdd)
+          val toRemove = oldNeighbours.map(neighbour => new Vertex(node, neighbour.id))
+          val toAdd = neighbours.map(neighbour => new Vertex(node, neighbour))
+          val removedVertices = vertex.filterNot(vertex => toRemove.exists(v => v.from == vertex.from && vertex.to == v.to))
+          new NaiveGraph(graph.nodes, removedVertices ++ toAdd)
       }
 
       override def removeNodes(nodes: Seq[String]): Graph = graph match {
         case g : BulkNodeOperation => g.removeNodes(nodes)
-        case _ => val nodesToRemove = nodes map { graph.get } collect { case Some(n) => n }
+        case _ => val nodesToRemove = nodes map { graph.get } map { _.toOption } collect { case Some(n) => n }
           val newVertices = graph.vertices filter { vertex => nodes.contains(vertex.from) || nodes.contains(vertex.to) }
-          NaiveGraph(graph.nodes -- nodesToRemove, newVertices)
+          val newNodes = graph.nodes.filterNot(node => nodesToRemove.exists(_.id == node.id))
+          new NaiveGraph(newNodes, newVertices)
       }
 
-      override def insertNodes(node: Seq[Node]): Graph = graph match {
-        case g : BulkNodeOperation => g.insertNodes(node)
-        case _ => NaiveGraph((graph.nodes -- node) ++ node, graph.vertices)
+      override def insertNodes(nodes: Seq[Node]): Graph = graph match {
+        case g : BulkNodeOperation => g.insertNodes(nodes)
+        case _ =>
+          val removeOld = (graph.nodes.filterNot(node => nodes.exists(_.id == node.id)))
+          new NaiveGraph(removeOld++ nodes, graph.vertices)
       }
     }
   }

@@ -3,6 +3,7 @@ package it.unibo.scafi.js
 import it.unibo.scafi.js.code._
 import it.unibo.scafi.js.controller.local
 import it.unibo.scafi.js.controller.local._
+import it.unibo.scafi.js.controller.scripting.Script.ScaFi
 import it.unibo.scafi.js.dsl.semantics._
 import it.unibo.scafi.js.dsl.{BasicWebIncarnation, ScafiInterpreterJs, WebIncarnation}
 import it.unibo.scafi.js.utils.{Cookie, Execution, appendOnce}
@@ -66,6 +67,7 @@ object Index {
   def spaPage(): Unit = {
     appendOnce(document.head, SkeletonPage.renderedStyle(RootStyle.withNav()).render)
     document.body.appendChild(SkeletonPage.fullPage.render)
+    window
   }
 
   def contentOnly(): Unit = {
@@ -147,6 +149,9 @@ object Index {
     val example = Seq(BasicExamples(), LibraryExamples(), MatrixLedExample(), MovementExamples(), HighLevelExamples())
     //PageStructure.static()
     PageStructure.resizable()
+    PageBus.publish(new ScaFi(new incarnation.AggregateProgram with incarnation.Actuation {
+      override def main(): Any = velocity set Cartesian(1, 0)
+    }))
     val exampleChooser = new ExampleChooser(SkeletonPage.selectionProgram, example, configurationSection, editor)
   }
   @JSExportTopLevel("ScafiBackend")
