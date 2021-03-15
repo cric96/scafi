@@ -1,4 +1,5 @@
 import sbt.Keys.target
+import scala.scalanative.build._ //for scala native setting
 // Resolvers
 resolvers += Resolver.sonatypeRepo("snapshots")
 resolvers += Resolver.typesafeRepo("releases")
@@ -108,7 +109,7 @@ lazy val scafi = project.in(file("."))
     unidocProjectFilter in (ScalaUnidoc, unidoc) := inAnyProject -- inProjects(tests,demos,`demos-new`,`demos-distributed`)
   )
 
-lazy val commonsCross = crossProject(JSPlatform, JVMPlatform).in(file("commons"))
+lazy val commonsCross = crossProject(JSPlatform, JVMPlatform, NativePlatform).in(file("commons"))
   .settings(commonSettings: _*)
   .settings(
     name := "scafi-commons"
@@ -116,10 +117,16 @@ lazy val commonsCross = crossProject(JSPlatform, JVMPlatform).in(file("commons")
   .jsSettings(
     libraryDependencies += "org.scala-js" %%% "scalajs-java-time" % "1.0.0"
   )
+  .nativeSettings(
+    libraryDependencies += "org.ekrich" %%% "sjavatime" % "1.1.0",
+    nativeConfig ~= {
+      _.withMode(Mode.releaseFull)
+    }
+  )
 
 lazy val commons = commonsCross.jvm
 
-lazy val coreCross = crossProject(JSPlatform, JVMPlatform).in(file("core"))
+lazy val coreCross = crossProject(JSPlatform, JVMPlatform, NativePlatform).in(file("core"))
   .dependsOn(commonsCross)
   .settings(commonSettings: _*)
   .settings(
@@ -137,7 +144,7 @@ lazy val `stdlib-ext` = project
     libraryDependencies ++= Seq(scalatest, shapeless)
   )
 
-lazy val simulatorCross = crossProject(JSPlatform, JVMPlatform).in(file("simulator"))
+lazy val simulatorCross = crossProject(JSPlatform, JVMPlatform, NativePlatform).in(file("simulator"))
   .dependsOn(coreCross)
   .settings(commonSettings: _*)
   .settings(
